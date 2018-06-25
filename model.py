@@ -33,14 +33,21 @@ class EmbeddingVisitor(ast.NodeVisitor):
             embeddings = [node_embedding]
             embeddings += self.embed_subtree(node)
             # result = self.embedding_network(torch.cat((node_embedding, subtree_embedding), -1))
-            c_0 = torch.zeros(1, self.embedding_dim)
-            h_0 = torch.zeros(1, self.embedding_dim)
+            # c_0 = torch.zeros(1, self.embedding_dim)
+            # h_0 = torch.zeros(1, self.embedding_dim)
+
+            embeddings = torch.cat(embeddings, 0).unsqueeze(0)
+
 
             # print(len(embeddings))
-            for node_embedding in embeddings:
-                (c_0, h_0) = self.subtree_network(node_embedding, (c_0, h_0))
+            # for node_embedding in embeddings:
+                # (c_0, h_0) = self.subtree_network(node_embedding, (c_0, h_0))
 
-            return c_0
+            lstm_result, _ = self.subtree_network(embeddings)
+
+            # print(lstm_result[0])
+
+            return lstm_result[0][-1]
 
         return node_embedding
 
@@ -72,15 +79,20 @@ class ASTEncoder(torch.nn.Module):
     def __init__(self, embedding_dims=100):
         super(self.__class__, self).__init__()
         n_nodes = len(NODE_TYPES)
+
+        embedding_dims = n_nodes
         self.embedding_dims = embedding_dims
-        self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims, dropout=0.2)
+        # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
+        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=1, batch_first=True)
         #self.embedding_network = torch.nn.Sequential(
         #                        torch.nn.Linear(2 * embedding_dims, 256),
         #                        torch.nn.ReLU(),
         #                        torch.nn.Linear(256, embedding_dims)
         #                    )
-
+        
         self.embedding_layer = torch.nn.Embedding(n_nodes, embedding_dims)
+        # self.embedding_layer.weight.copy_(torch.eye(embedding_dims))
+        # self.embedding_layer.weight.
 
         self.visitor = EmbeddingVisitor(self.embedding_layer, self.subtree_network, None)
 
@@ -93,7 +105,7 @@ class Model(torch.nn.Module):
         super(self.__class__, self).__init__()
         self.ast_encoder = ASTEncoder()
         self.softmax_head = torch.nn.Sequential(
-                        torch.BatchNorm1d(self.self.ast_encoder.embedding_dims),
+                        # torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
                         torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
                         torch.nn.ReLU(),
                         torch.nn.Linear(256, n_classes),
