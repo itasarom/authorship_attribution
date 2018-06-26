@@ -26,6 +26,9 @@ class EmbeddingVisitor(ast.NodeVisitor):
         tmp = np.array([self.node_to_index(node)])
         # print(tmp)
         return self.embedding_layer(torch.from_numpy(tmp))
+        # result = torch.zeros(1, self.embedding_dim, requires_grad=False)
+        # result[0, self.node_to_index(node)] = 1
+        # return result
 
     def embed_node(self, node):
         node_embedding = self.embed_node_proper(node)
@@ -84,6 +87,11 @@ class ASTEncoder(torch.nn.Module):
         self.embedding_dims = embedding_dims
         # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
         self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=1, batch_first=True)
+
+        torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
+        torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
+        torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 0)
+        torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 1)
         #self.embedding_network = torch.nn.Sequential(
         #                        torch.nn.Linear(2 * embedding_dims, 256),
         #                        torch.nn.ReLU(),
@@ -104,6 +112,7 @@ class Model(torch.nn.Module):
     def __init__(self, n_classes):
         super(self.__class__, self).__init__()
         self.ast_encoder = ASTEncoder()
+        # self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
         self.softmax_head = torch.nn.Sequential(
                         # torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
                         torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
