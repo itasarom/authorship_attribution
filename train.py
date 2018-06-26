@@ -10,6 +10,9 @@ from IPython import display
 
 import os
 from collections import defaultdict
+
+
+
 def read_all(path = "../cf/Solutions"):
     result = {}
     for handle in os.listdir(path):
