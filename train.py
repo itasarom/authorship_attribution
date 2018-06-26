@@ -150,6 +150,9 @@ class Trainer:
     
     def train(self, batch_sampler, params):
         self.model.train()
+
+        grads_1 = []
+        grads_2 = []
         for epoch_id in range(params['n_epochs']):
             self.model.train()
             for x, y in batch_sampler.train():
@@ -159,7 +162,9 @@ class Trainer:
                 # print(prediction)
                 loss = self.loss_object(prediction, y)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
+                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
+                grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.mean())
+                grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.mean())
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
 
@@ -172,6 +177,10 @@ class Trainer:
                 plt.plot(self.train_metrics['accuracy'], color='red', label='train')
                 plt.plot(self.validation_metrics['accuracy'], color='blue', label='val')
                 plt.legend()
+                plt.show()
+
+                plt.plot(grads_1)
+                plt.plot(grads_2)
                 plt.show()
                 # print(y)
                 # print(prediction)

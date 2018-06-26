@@ -5,7 +5,7 @@ import ast
 
 NODE_TYPES = ['AST', 'Add', 'And', 'Assert', 'Assign', 'AsyncFor', 'AsyncFunctionDef', 'AsyncWith', 'Attribute', 'AugAssign', 'AugLoad', 'AugStore', 'Await', 'BinOp', 'BitAnd', 'BitOr', 'BitXor', 'BoolOp', 'Break', 'Bytes', 'Call', 'ClassDef', 'Compare', 'Continue', 'Del', 'Delete', 'Dict', 'DictComp', 'Div', 'Ellipsis', 'Eq', 'ExceptHandler', 'Expr', 'Expression', 'ExtSlice', 'FloorDiv', 'For', 'FunctionDef', 'GeneratorExp', 'Global', 'Gt', 'GtE', 'If', 'IfExp', 'Import', 'ImportFrom', 'In', 'Index', 'Interactive', 'Invert', 'Is', 'IsNot', 'LShift', 'Lambda', 'List', 'ListComp', 'Load', 'Lt', 'LtE', 'MatMult', 'Mod', 'Module', 'Mult', 'Name', 'NameConstant', 'NodeTransformer', 'NodeVisitor', 'Nonlocal', 'Not', 'NotEq', 'NotIn', 'Num', 'Or', 'Param', 'Pass', 'Pow', 'PyCF_ONLY_AST', 'RShift', 'Raise', 'Return', 'Set', 'SetComp', 'Slice', 'Starred', 'Store', 'Str', 'Sub', 'Subscript', 'Suite', 'Try', 'Tuple', 'UAdd', 'USub', 'UnaryOp', 'While', 'With', 'Yield', 'YieldFrom', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'alias', 'arg', 'arguments', 'boolop', 'cmpop', 'comprehension', 'copy_location', 'dump', 'excepthandler', 'expr', 'expr_context', 'fix_missing_locations', 'get_docstring', 'increment_lineno', 'iter_child_nodes', 'iter_fields', 'keyword', 'literal_eval', 'mod', 'operator', 'parse', 'slice', 'stmt', 'unaryop', 'walk', 'withitem']
 
-def read_pretrained_vocabs(self, embeddings_path):
+def read_pretrained_vocabs(embeddings_path):
         f = open(embeddings_path, "r")
         embeddings  = []
         words = []
@@ -22,13 +22,12 @@ def read_pretrained_vocabs(self, embeddings_path):
             word_set.add(word)
             words.append(word) 
             embeddings.append(vec)
-            assert self.embedding_dim == vec.shape[1], (embedding_dim, vec.shape[1], vec)
+            assert embedding_dim == vec.shape[1], (embedding_dim, vec.shape[1], vec)
                 
-        max_sent_length = max_sent_length
         
         # print(self.embeddings[0])
         transformation = dict(zip(words, range(len(words))))
-        embeddings  = np.vstack(self.embeddings)
+        embeddings  = torch.from_numpy(np.vstack(embeddings))
 
         return embedding_dim, transformation, embeddings
 
@@ -105,6 +104,26 @@ class EmbeddingVisitor(ast.NodeVisitor):
         return children_embeddings
 
 
+def init_ast_embeddings(n_nodes, embedding_dims, pre_init=False):
+    embedding_layer = torch.nn.Embedding(n_nodes, embedding_dims)
+    if not pre_init:
+        return embedding_layer
+
+    embedding_dim, transformation, embeddings = read_pretrained_vocabs("./pretrained_vectors.txt")
+
+    new_weight = torch.rand(n_nodes, embedding_dims)
+    for word, id in transformation.items():
+        if word not in NODE_TYPES:
+            continue 
+        else:
+            new_weight[NODE_TYPES.index(word)] = embeddings[id]
+
+
+    embedding_layer.weight.data = new_weight
+
+    return embedding_layer
+
+
 class ASTEncoder(torch.nn.Module):
     def __init__(self, embedding_dims):
         super(self.__class__, self).__init__()
@@ -125,8 +144,8 @@ class ASTEncoder(torch.nn.Module):
         #                        torch.nn.Linear(256, embedding_dims)
         #                    )
         
-        self.embedding_layer = torch.nn.Embedding(n_nodes, embedding_dims)
-        # self.embedding_layer.weight.copy_(torch.eye(embedding_dims))
+        self.embedding_layer = init_ast_embeddings(n_nodes, embedding_dims, True)
+        
         # self.embedding_layer.weight.
 
         self.visitor = EmbeddingVisitor(self.embedding_layer, self.subtree_network, None)
