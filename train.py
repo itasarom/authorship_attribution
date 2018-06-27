@@ -110,12 +110,95 @@ class NameBatcher:
             yield self.x_test[pos:pos + self.batch_size], torch.from_numpy(np.array(self.y_test[pos:pos + self.batch_size], dtype=np.int64))
 
 
+def split(d, train_frac, seed):
+    np.random.seed(seed)
+    train_data = {}
+    test_data = {}
+    for handle, result_for_handle in d.items():
+        current_train = {}
+        current_test = {}
+        n_items = len(result_for_handle)
+        train_size = int(train_frac * n_items)
+        test_size = n_items - train_size
+        result_for_handle = list(result_for_handle.items())
+        
+        result_for_handle = np.random.permutation(result_for_handle)
+        
+        for i in range(train_size):
+            item = result_for_handle[i]
+            current_train[item[0]] = item[1]
+        
+        for i in range(train_size, n_items, 1):
+            item = result_for_handle[i]
+            current_test[item[0]] = item[1]
+            
+        train_data[handle] = current_train
+        test_data[handle] = current_test
+    
+    
+    return train_data, test_data
+        
+        
+        
+        
+        
+
+class StratifiedBatcher:
+    def __init__(self, data, batch_size, train_frac, seed=42):
+
+        self.batch_size = batch_size
+        self.data = data
+        self.classes = list(sorted(data.keys()))
+        train, test = split(data, train_frac, seed)
+
+        self.train_data = train
+        self.test_data = test
+
+        self.class_encoder = {handle:id for id, handle in enumerate(self.classes)}
+
+
+        self.y_train = []
+        self.x_train = []
+        self.y_test = []
+        self.x_test = []
+
+        for handle, submissions in train.items():
+            for submission, src in submissions.items():
+                    self.y_train.append(self.class_encoder[handle])
+                    self.x_train.append(src)
+
+
+        for handle, submissions in test.items():
+            for submission, src in submissions.items():
+                    self.y_test.append(self.class_encoder[handle])
+                    self.x_test.append(src)
+
+
+        self.y_train = np.array(self.y_train)
+        self.x_train = np.array(self.x_train)
+
+        self.y_test = np.array(self.y_test)
+        self.x_test = np.array(self.x_test)
+
+
+    def get_n_classes(self):
+        return len(self.classes)
+
+    def train(self):
+        for pos in range(0, len(self.x_train), self.batch_size):
+            yield self.x_train[pos:pos + self.batch_size], torch.from_numpy(np.array(self.y_train[pos:pos + self.batch_size], dtype=np.int64))
+
+    def test(self):
+        for pos in range(0, len(self.x_test), self.batch_size):
+            yield self.x_test[pos:pos + self.batch_size], torch.from_numpy(np.array(self.y_test[pos:pos + self.batch_size], dtype=np.int64))
+
+
 
 
 class Trainer:
     def __init__(self, model, loss_object, optimizer):
 
-        torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+        torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
         self.model = model
         self.loss_object = loss_object
         self.optimizer = optimizer
@@ -163,8 +246,8 @@ class Trainer:
                 loss = self.loss_object(prediction, y)
                 loss.backward()
                 # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
-                grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.mean())
-                grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.mean())
+                grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
+                grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
 
