@@ -132,19 +132,24 @@ class ASTEncoder(torch.nn.Module):
         # embedding_dims = n_nodes
         self.embedding_dims = embedding_dims
         # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
-        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=1, batch_first=True)
+        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=2, dropout=0.2, batch_first=True)
 
         torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
         torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
         torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 0)
         torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 1)
+
+        torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l1)
+        torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l1)
+        torch.nn.init.constant_(self.subtree_network.bias_ih_l1, 0)
+        torch.nn.init.constant_(self.subtree_network.bias_ih_l1, 1)
         #self.embedding_network = torch.nn.Sequential(
         #                        torch.nn.Linear(2 * embedding_dims, 256),
         #                        torch.nn.ReLU(),
         #                        torch.nn.Linear(256, embedding_dims)
         #                    )
         
-        self.embedding_layer = init_ast_embeddings(n_nodes, embedding_dims, True)
+        self.embedding_layer = init_ast_embeddings(n_nodes, embedding_dims, False)
         
         # self.embedding_layer.weight.
 

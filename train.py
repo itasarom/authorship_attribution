@@ -270,31 +270,33 @@ class Trainer:
 
             print(self.train_metrics['loss'][-1])
 
-            self.model.eval()
-            z = 0
-            n_items = 0
-            for x, y in batch_sampler.train():
-                prediction = self.model(x)
-                _, prediction = prediction.max(dim=1)
-                z += np.count_nonzero(prediction == y)
-                n_items += len(prediction)
 
-            self.train_metrics['accuracy'].append(z/n_items)
-            print(self.train_metrics['accuracy'][-1])
+            if epoch_id % 5 == 0:
+                self.model.eval()
+                z = 0
+                n_items = 0
+                for x, y in batch_sampler.train():
+                    prediction = self.model(x)
+                    _, prediction = prediction.max(dim=1)
+                    z += np.count_nonzero(prediction == y)
+                    n_items += len(prediction)
+
+                self.train_metrics['accuracy'].append(z/n_items)
+                print(self.train_metrics['accuracy'][-1])
 
 
-            z = 0
-            n_items = 0
-            loss_acc = 0
-            for x, y in batch_sampler.test():
-                prediction = self.model(x)
-                loss_acc += self.loss_object(prediction, y).detach().numpy() * len(x)
-                _, prediction = prediction.max(dim=1)
-                z += np.count_nonzero(prediction == y)
-                n_items += len(prediction)
+                z = 0
+                n_items = 0
+                loss_acc = 0
+                for x, y in batch_sampler.test():
+                    prediction = self.model(x)
+                    loss_acc += self.loss_object(prediction, y).detach().numpy() * len(x)
+                    _, prediction = prediction.max(dim=1)
+                    z += np.count_nonzero(prediction == y)
+                    n_items += len(prediction)
 
-            self.validation_metrics['validation_iterations'].append(len(self.train_metrics['loss']))
-            self.validation_metrics['loss'].append(loss_acc/n_items)
-            self.validation_metrics['accuracy'].append(z/n_items)
-            print(self.validation_metrics['accuracy'][-1])
+                self.validation_metrics['validation_iterations'].append(len(self.train_metrics['loss']))
+                self.validation_metrics['loss'].append(loss_acc/n_items)
+                self.validation_metrics['accuracy'].append(z/n_items)
+                print(self.validation_metrics['accuracy'][-1])
 
