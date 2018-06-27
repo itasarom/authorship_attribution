@@ -158,14 +158,14 @@ class Model(torch.nn.Module):
     def __init__(self, n_classes, embedding_dims):
         super(self.__class__, self).__init__()
         self.ast_encoder = ASTEncoder(embedding_dims)
-        # self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
-        self.softmax_head = torch.nn.Sequential(
-                        # torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
-                        torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
-                        torch.nn.ReLU(),
-                        torch.nn.Linear(256, n_classes),
+        self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
+        # self.softmax_head = torch.nn.Sequential(
+                        ## torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
+                        # torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
+                        # torch.nn.ReLU(),
+                        # torch.nn.Linear(256, n_classes),
                         # torch.nn.Softmax(dim=1)
-                    )
+                    # )
 
 
 
