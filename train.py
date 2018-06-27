@@ -177,6 +177,10 @@ class StratifiedBatcher:
         self.y_train = np.array(self.y_train)
         self.x_train = np.array(self.x_train)
 
+        order = np.random.permutation(np.arange(len(self.x_train)))
+        self.y_train = self.y_train[order]
+        self.x_train = self.x_train[order]
+
         self.y_test = np.array(self.y_test)
         self.x_test = np.array(self.x_test)
 
@@ -198,7 +202,7 @@ class StratifiedBatcher:
 class Trainer:
     def __init__(self, model, loss_object, optimizer):
 
-        torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+        torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
         self.model = model
         self.loss_object = loss_object
         self.optimizer = optimizer
@@ -245,9 +249,11 @@ class Trainer:
                 # print(prediction)
                 loss = self.loss_object(prediction, y)
                 loss.backward()
-                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
+                
                 grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
                 grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
+
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
 
