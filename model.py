@@ -134,7 +134,7 @@ class ASTEncoder(torch.nn.Module):
         # embedding_dims = n_nodes
         self.embedding_dims = embedding_dims
         # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
-        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=3, dropout=0.3, batch_first=True)
+        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=3, dropout=0.2, batch_first=True)
 
         torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
         torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
