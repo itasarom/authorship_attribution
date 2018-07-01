@@ -58,6 +58,7 @@ class EmbeddingVisitor(ast.NodeVisitor):
 
     def embed_node(self, node):
         node_embedding = self.embed_node_proper(node)
+        result = node_embedding
         # print("Embedding ", node)
         if len(list(ast.iter_child_nodes(node))):
             embeddings = [node_embedding]
@@ -78,9 +79,10 @@ class EmbeddingVisitor(ast.NodeVisitor):
             # print(lstm_result[0])
             # print("Ended embedding", node)
             result = lstm_result[0][-1]
-            return torch.nn.functional.dropout(result, 0.2)
+            
 
-        return node_embedding
+        return torch.nn.functional.dropout(result, 0.2)
+        # return node_embedding
 
     def embed_subtree(self, node):
         children_embeddings = []
