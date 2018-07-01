@@ -248,13 +248,14 @@ class Trainer:
                 prediction = self.model(x)
                 # print(prediction)
                 loss = self.loss_object(prediction, y)
-                regularized_loss = loss + 0.01 * self.model.regularizer()
+                regularized_loss = loss + 0.1 * self.model.regularizer()
                 regularized_loss.backward()
+                print(regularized_loss)
                 
                 grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
                 grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
 
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
+                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
 
