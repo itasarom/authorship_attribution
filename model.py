@@ -77,7 +77,8 @@ class EmbeddingVisitor(ast.NodeVisitor):
 
             # print(lstm_result[0])
             # print("Ended embedding", node)
-            return lstm_result[0][-1]
+            result = lstm_result[0][-1]
+            return torch.nn.functional.dropout(result, 0.2)
 
         return node_embedding
 
@@ -134,22 +135,22 @@ class ASTEncoder(torch.nn.Module):
         # embedding_dims = n_nodes
         self.embedding_dims = embedding_dims
         # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
-        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=3, dropout=0.2, batch_first=True)
+        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=1, dropout=0.0, batch_first=True)
 
         torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
         torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
         torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 0)
         torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 1)
 
-        torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l1)
-        torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l1)
-        torch.nn.init.constant_(self.subtree_network.bias_ih_l1, 0)
-        torch.nn.init.constant_(self.subtree_network.bias_ih_l1, 1)
+        # torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l1)
+        # torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l1)
+        # torch.nn.init.constant_(self.subtree_network.bias_ih_l1, 0)
+        # torch.nn.init.constant_(self.subtree_network.bias_ih_l1, 1)
 
-        torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l2)
-        torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l2)
-        torch.nn.init.constant_(self.subtree_network.bias_ih_l2, 0)
-        torch.nn.init.constant_(self.subtree_network.bias_ih_l2, 1)
+        # torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l2)
+        # torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l2)
+        # torch.nn.init.constant_(self.subtree_network.bias_ih_l2, 0)
+        # torch.nn.init.constant_(self.subtree_network.bias_ih_l2, 1)
         #self.embedding_network = torch.nn.Sequential(
         #                        torch.nn.Linear(2 * embedding_dims, 256),
         #                        torch.nn.ReLU(),
@@ -192,11 +193,11 @@ class Model(torch.nn.Module):
 
     def regularizer(self):
         result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) + \
-                torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) + \
-                torch.norm(self.ast_encoder.subtree_network.weight_ih_l1) + \
-                torch.norm(self.ast_encoder.subtree_network.weight_hh_l1) + \
-                torch.norm(self.ast_encoder.subtree_network.weight_ih_l2) + \
-                torch.norm(self.ast_encoder.subtree_network.weight_hh_l2)
+                torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) #+ \
+                # torch.norm(self.ast_encoder.subtree_network.weight_ih_l1) + \
+                # torch.norm(self.ast_encoder.subtree_network.weight_hh_l1) + \
+                # torch.norm(self.ast_encoder.subtree_network.weight_ih_l2) + \
+                # torch.norm(self.ast_encoder.subtree_network.weight_hh_l2)
 
 
         return result

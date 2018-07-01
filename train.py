@@ -248,7 +248,7 @@ class Trainer:
                 prediction = self.model(x)
                 # print(prediction)
                 loss = self.loss_object(prediction, y)
-                regularized_loss = loss + 0.1 * self.model.regularizer()
+                regularized_loss = loss + 0.001 * self.model.regularizer()
                 regularized_loss.backward()
                 print(regularized_loss)
                 
