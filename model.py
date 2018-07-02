@@ -79,10 +79,10 @@ class EmbeddingVisitor(ast.NodeVisitor):
             # print(lstm_result[0])
             # print("Ended embedding", node)
             result = lstm_result[0][-1]
-            
+            return torch.nn.functional.dropout(result, 0.2)
 
-        return torch.nn.functional.dropout(result, 0.2)
-        # return node_embedding
+
+        return node_embedding
 
     def embed_subtree(self, node):
         children_embeddings = []
@@ -142,7 +142,7 @@ class ASTEncoder(torch.nn.Module):
         torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
         torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
         torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 0)
-        torch.nn.init.constant_(self.subtree_network.bias_ih_l0, 1)
+        torch.nn.init.constant_(self.subtree_network.bias_hh_l0, 1)
 
         # torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l1)
         # torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l1)
