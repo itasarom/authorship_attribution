@@ -279,7 +279,7 @@ class Trainer:
             print(self.train_metrics['loss'][-1])
 
 
-            if epoch_id % 5 == 0:
+            if epoch_id % 2 == 0:
                 self.model.eval()
                 z = 0
                 n_items = 0

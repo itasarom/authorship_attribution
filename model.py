@@ -78,11 +78,14 @@ class EmbeddingVisitor(ast.NodeVisitor):
 
             # print(lstm_result[0])
             # print("Ended embedding", node)
+            # print(lstm_result.size())
             result = lstm_result[0][-1]
-            return torch.nn.functional.dropout(result, 0.2)
+            result = torch.nn.functional.dropout(result, 0.2, training=self.subtree_network.training)
+            # return 
 
+            # print(result)
 
-        return node_embedding
+        return result
 
     def embed_subtree(self, node):
         children_embeddings = []
