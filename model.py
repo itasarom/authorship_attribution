@@ -194,8 +194,8 @@ class Model(torch.nn.Module):
 
 
     def regularizer(self):
-        result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) + \
-                torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) #+ \
+        result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) ** 2 + \
+                torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) ** 2 #+ \
                 # torch.norm(self.ast_encoder.subtree_network.weight_ih_l1) + \
                 # torch.norm(self.ast_encoder.subtree_network.weight_hh_l1) + \
                 # torch.norm(self.ast_encoder.subtree_network.weight_ih_l2) + \

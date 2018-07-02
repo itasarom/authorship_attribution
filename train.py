@@ -248,7 +248,7 @@ class Trainer:
                 prediction = self.model(x)
                 # print(prediction)
                 loss = self.loss_object(prediction, y)
-                regularized_loss = loss + 0.001 * self.model.regularizer()
+                regularized_loss = loss + 0.01 * self.model.regularizer() #+ 0.1 * torch.norm(prediction, p = 1)
                 regularized_loss.backward()
                 print(regularized_loss)
                 
