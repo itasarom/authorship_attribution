@@ -177,6 +177,7 @@ class Model(torch.nn.Module):
         super(self.__class__, self).__init__()
         self.ast_encoder = ASTEncoder(embedding_dims)
         self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
+        torch.nn.init.xavier_normal_(self.softmax_head[0].weight)
         # self.softmax_head = torch.nn.Sequential(
                         ## torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
                         # torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
@@ -197,8 +198,13 @@ class Model(torch.nn.Module):
 
 
     def regularizer(self):
-        result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) ** 2 + \
-                torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) ** 2 #+ \
+        result = torch.sum(self.ast_encoder.subtree_network.weight_ih_l0 ** 2) + \
+                torch.sum(self.ast_encoder.subtree_network.weight_hh_l0 ** 2) + \
+                torch.sum(self.ast_encoder.subtree_network.bias_ih_l0 ** 2) + \
+                torch.sum(self.ast_encoder.subtree_network.bias_hh_l0 ** 2) + \
+                torch.sum(self.softmax_head[0].weight ** 2)
+                # result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) ** 2 + \
+                # torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) ** 2 + 
                 # torch.norm(self.ast_encoder.subtree_network.weight_ih_l1) + \
                 # torch.norm(self.ast_encoder.subtree_network.weight_hh_l1) + \
                 # torch.norm(self.ast_encoder.subtree_network.weight_ih_l2) + \
