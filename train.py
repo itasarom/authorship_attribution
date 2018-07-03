@@ -202,7 +202,7 @@ class StratifiedBatcher:
 class Trainer:
     def __init__(self, model, loss_object, optimizer):
 
-        torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
+        torch.optim.lr_scheduler.StepLR(optimizer, step_size=150, gamma=0.5)
         self.model = model
         self.loss_object = loss_object
         self.optimizer = optimizer
@@ -260,16 +260,28 @@ class Trainer:
                 self.train_metrics['loss'].append(loss.detach().numpy())
 
                 display.clear_output(wait=True)
+                plt.figure(figsize=(15, 10))
+                plt.grid()
                 plt.plot(self.train_metrics['loss'], color='red', label='train')
                 plt.plot(self.validation_metrics['validation_iterations'], self.validation_metrics['loss'], color='blue', label='val')
                 plt.legend()
                 plt.show()
 
+                plt.figure(figsize=(15, 10))
+                plt.grid()
+                plt.plot(self.validation_metrics['validation_iterations'], self.validation_metrics['loss'], color='blue', label='val')
+                plt.legend()
+                plt.show()
+
+                plt.figure(figsize=(15, 10))
+                plt.grid()
                 plt.plot(self.train_metrics['accuracy'], color='red', label='train')
                 plt.plot(self.validation_metrics['accuracy'], color='blue', label='val')
                 plt.legend()
                 plt.show()
 
+                plt.figure(figsize=(15, 10))
+                plt.grid()
                 plt.plot(grads_1)
                 plt.plot(grads_2)
                 plt.show()
