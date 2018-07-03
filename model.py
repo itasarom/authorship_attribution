@@ -114,6 +114,7 @@ class EmbeddingVisitor(ast.NodeVisitor):
 
 def init_ast_embeddings(n_nodes, embedding_dims, pre_init=False):
     embedding_layer = torch.nn.Embedding(n_nodes, embedding_dims)
+    torch.nn.init.xavier_normal_(embedding_layer.weight)
     if not pre_init:
         return embedding_layer
 
@@ -202,7 +203,9 @@ class Model(torch.nn.Module):
                 torch.sum(self.ast_encoder.subtree_network.weight_hh_l0 ** 2) + \
                 torch.sum(self.ast_encoder.subtree_network.bias_ih_l0 ** 2) + \
                 torch.sum(self.ast_encoder.subtree_network.bias_hh_l0 ** 2) + \
-                torch.sum(self.softmax_head[0].weight ** 2)
+                torch.sum(self.softmax_head[0].weight ** 2) + \
+                0
+                # torch.sum(self.ast_encoder.embedding_layer.weight ** 2)
                 # result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) ** 2 + \
                 # torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) ** 2 + 
                 # torch.norm(self.ast_encoder.subtree_network.weight_ih_l1) + \

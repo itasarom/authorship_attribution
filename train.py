@@ -240,6 +240,7 @@ class Trainer:
 
         grads_1 = []
         grads_2 = []
+        grads_embeddings = []
         for epoch_id in range(params['n_epochs']):
             self.model.train()
             for x, y in batch_sampler.train():
@@ -247,17 +248,20 @@ class Trainer:
                 self.optimizer.zero_grad()
                 prediction = self.model(x)
                 # print(prediction)
+                # print(y)
                 loss = self.loss_object(prediction, y)
                 regularized_loss = loss + 0.001 * self.model.regularizer() #+ 0.1 * torch.norm(prediction, p = 1)
                 regularized_loss.backward()
-                print(regularized_loss)
+                # print(regularized_loss)
                 
                 grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
                 grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
+                grads_embeddings.append(self.model.ast_encoder.embedding_layer.weight.grad.norm())
 
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
+                self.train_metrics['regularizer'].append((regularized_loss - loss).detach().numpy())
 
                 display.clear_output(wait=True)
                 plt.figure(figsize=(15, 10))
@@ -275,6 +279,12 @@ class Trainer:
 
                 plt.figure(figsize=(15, 10))
                 plt.grid()
+                plt.plot(self.train_metrics['regularizer'], color='red', label='train')
+                plt.legend()
+                plt.show()
+
+                plt.figure(figsize=(15, 10))
+                plt.grid()
                 plt.plot(self.train_metrics['accuracy'], color='red', label='train')
                 plt.plot(self.validation_metrics['accuracy'], color='blue', label='val')
                 plt.legend()
@@ -284,6 +294,8 @@ class Trainer:
                 plt.grid()
                 plt.plot(grads_1)
                 plt.plot(grads_2)
+                plt.plot(grads_embeddings, label='embeddings')
+                plt.legend()
                 plt.show()
                 # print(y)
                 # print(prediction)
@@ -297,9 +309,11 @@ class Trainer:
                 n_items = 0
                 for x, y in batch_sampler.train():
                     prediction = self.model(x)
+                    print(prediction)
                     _, prediction = prediction.max(dim=1)
                     z += np.count_nonzero(prediction == y)
                     n_items += len(prediction)
+                    print(prediction)
 
                 self.train_metrics['accuracy'].append(z/n_items)
                 print(self.train_metrics['accuracy'][-1])
@@ -320,3 +334,4 @@ class Trainer:
                 self.validation_metrics['accuracy'].append(z/n_items)
                 print(self.validation_metrics['accuracy'][-1])
 
+            # raise ValueError()
