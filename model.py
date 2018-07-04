@@ -204,8 +204,7 @@ class Model(torch.nn.Module):
                 torch.sum(self.ast_encoder.subtree_network.bias_ih_l0 ** 2) + \
                 torch.sum(self.ast_encoder.subtree_network.bias_hh_l0 ** 2) + \
                 torch.sum(self.softmax_head[0].weight ** 2) + \
-                0
-                # torch.sum(self.ast_encoder.embedding_layer.weight ** 2)
+                torch.sum(self.ast_encoder.embedding_layer.weight ** 2)
                 # result = torch.norm(self.ast_encoder.subtree_network.weight_ih_l0) ** 2 + \
                 # torch.norm(self.ast_encoder.subtree_network.weight_hh_l0) ** 2 + 
                 # torch.norm(self.ast_encoder.subtree_network.weight_ih_l1) + \
