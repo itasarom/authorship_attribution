@@ -116,13 +116,13 @@ def split(d, train_frac, seed):
     np.random.seed(seed)
     train_data = {}
     test_data = {}
-    for handle, result_for_handle in d.items():
+    for handle, result_for_handle in sorted(d.items()):
         current_train = {}
         current_test = {}
         n_items = len(result_for_handle)
         train_size = int(train_frac * n_items)
         test_size = n_items - train_size
-        result_for_handle = list(result_for_handle.items())
+        result_for_handle = sorted(list(result_for_handle.items()))
         
         result_for_handle = np.random.permutation(result_for_handle)
         
@@ -164,14 +164,14 @@ class StratifiedBatcher:
         self.y_test = []
         self.x_test = []
 
-        for handle, submissions in train.items():
-            for submission, src in submissions.items():
+        for handle, submissions in sorted(train.items()):
+            for submission, src in sorted(submissions.items()):
                     self.y_train.append(self.class_encoder[handle])
                     self.x_train.append(src)
 
 
-        for handle, submissions in test.items():
-            for submission, src in submissions.items():
+        for handle, submissions in sorted(test.items()):
+            for submission, src in sorted(submissions.items()):
                     self.y_test.append(self.class_encoder[handle])
                     self.x_test.append(src)
 
@@ -198,6 +198,7 @@ class StratifiedBatcher:
         for pos in range(0, len(self.x_test), self.batch_size):
             yield self.x_test[pos:pos + self.batch_size], torch.from_numpy(np.array(self.y_test[pos:pos + self.batch_size], dtype=np.int64))
 
+
 class StratifiedBatcherPreprocessed(StratifiedBatcher):
     def __init__(self, data, batch_size, train_frac, seed=42):
 
@@ -217,8 +218,8 @@ class StratifiedBatcherPreprocessed(StratifiedBatcher):
         self.y_test = []
         self.x_test = []
 
-        for handle, submissions in train.items():
-            for submission, src in submissions.items():
+        for handle, submissions in sorted(train.items()):
+            for submission, src in sorted(submissions.items()):
                     self.y_train.append(self.class_encoder[handle])
                     self.x_train.append(ast.parse(src))
 
