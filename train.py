@@ -1,4 +1,5 @@
 import tqdm
+import time
 import numpy as np
 import torch
 #import datetime
@@ -7,6 +8,7 @@ from collections import defaultdict
 from sklearn.metrics import log_loss, accuracy_score
 import matplotlib.pyplot as plt
 from IPython import display
+import ast
 
 import os
 from collections import defaultdict
@@ -196,6 +198,112 @@ class StratifiedBatcher:
         for pos in range(0, len(self.x_test), self.batch_size):
             yield self.x_test[pos:pos + self.batch_size], torch.from_numpy(np.array(self.y_test[pos:pos + self.batch_size], dtype=np.int64))
 
+class StratifiedBatcherPreprocessed(StratifiedBatcher):
+    def __init__(self, data, batch_size, train_frac, seed=42):
+
+        self.batch_size = batch_size
+        self.data = data
+        self.classes = list(sorted(data.keys()))
+        train, test = split(data, train_frac, seed)
+
+        self.train_data = train
+        self.test_data = test
+
+        self.class_encoder = {handle:id for id, handle in enumerate(self.classes)}
+
+
+        self.y_train = []
+        self.x_train = []
+        self.y_test = []
+        self.x_test = []
+
+        for handle, submissions in train.items():
+            for submission, src in submissions.items():
+                    self.y_train.append(self.class_encoder[handle])
+                    self.x_train.append(ast.parse(src))
+
+
+        for handle, submissions in test.items():
+            for submission, src in submissions.items():
+                    self.y_test.append(self.class_encoder[handle])
+                    self.x_test.append(ast.parse(src))
+
+
+        self.y_train = np.array(self.y_train)
+        self.x_train = np.array(self.x_train)
+
+        order = np.random.permutation(np.arange(len(self.x_train)))
+        self.y_train = self.y_train[order]
+        self.x_train = self.x_train[order]
+
+        self.y_test = np.array(self.y_test)
+        self.x_test = np.array(self.x_test)
+
+def transform_for_problems(d):
+    result = defaultdict(list)
+    for handle, result_for_handle in d.items():
+        for problem, src in result_for_handle.items():
+            result[problem].append(src)
+            
+    return result
+            
+            
+def split_problems(d, train_frac, seed):
+    np.random.seed(seed)
+    train_data = {}
+    test_data = {}
+    for problem, solutions in d.items():
+        n_items = len(solutions)
+        train_size = int(train_frac * n_items)
+        solutions = np.random.permutation(solutions)
+        train_data[problem] = solutions[:train_size]
+        test_data[problem] = solutions[train_size:]
+    
+    
+    return train_data, test_data
+            
+
+class StratifiedProblemBatcher(StratifiedBatcher):
+    def __init__(self, data, batch_size, train_frac, seed=42):
+
+        self.batch_size = batch_size
+        self.data = data
+        self.classes = list(sorted(data.keys()))
+        train, test = split_problems(data, train_frac, seed)
+
+        self.train_data = train
+        self.test_data = test
+
+        self.class_encoder = {problem:id for id, problem in enumerate(self.classes)}
+
+
+        self.y_train = []
+        self.x_train = []
+        self.y_test = []
+        self.x_test = []
+        
+        for problem, solutions in train.items():
+            for src in solutions:
+                self.y_train.append(self.class_encoder[problem])
+                self.x_train.append(src)
+                
+                
+        for problem, solutions in test.items():
+            for src in solutions:
+                self.y_test.append(self.class_encoder[problem])
+                self.x_test.append(src)
+
+
+
+        self.y_train = np.array(self.y_train)
+        self.x_train = np.array(self.x_train)
+
+        order = np.random.permutation(np.arange(len(self.x_train)))
+        self.y_train = self.y_train[order]
+        self.x_train = self.x_train[order]
+
+        self.y_test = np.array(self.y_test)
+        self.x_test = np.array(self.x_test)
 
 
 
@@ -243,6 +351,7 @@ class Trainer:
         grads_embeddings = []
         for epoch_id in range(params['n_epochs']):
             self.model.train()
+            start_time = time.time()
             for x, y in batch_sampler.train():
                 # print(y)
                 self.optimizer.zero_grad()
@@ -250,7 +359,7 @@ class Trainer:
                 # print(prediction)
                 # print(y)
                 loss = self.loss_object(prediction, y)
-                regularized_loss = loss + 0.001 * self.model.regularizer() #+ 0.1 * torch.norm(prediction, p = 1)
+                regularized_loss = loss + 0.01 * self.model.regularizer() #+ 0.1 * torch.norm(prediction, p = 1)
                 regularized_loss.backward()
                 # print(regularized_loss)
                 
@@ -300,7 +409,8 @@ class Trainer:
                 # print(y)
                 # print(prediction)
 
-            print(self.train_metrics['loss'][-1])
+            print("Epoch took ", time.time() - start_time)
+            #print(self.train_metrics['loss'][-1])
 
 
             if epoch_id % 2 == 0:

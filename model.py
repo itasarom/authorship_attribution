@@ -1,9 +1,12 @@
 import numpy as np
 import torch
 import ast
+import torch.multiprocessing as mp
 
 
-NODE_TYPES = ['AST', 'Add', 'And', 'Assert', 'Assign', 'AsyncFor', 'AsyncFunctionDef', 'AsyncWith', 'Attribute', 'AugAssign', 'AugLoad', 'AugStore', 'Await', 'BinOp', 'BitAnd', 'BitOr', 'BitXor', 'BoolOp', 'Break', 'Bytes', 'Call', 'ClassDef', 'Compare', 'Continue', 'Del', 'Delete', 'Dict', 'DictComp', 'Div', 'Ellipsis', 'Eq', 'ExceptHandler', 'Expr', 'Expression', 'ExtSlice', 'FloorDiv', 'For', 'FunctionDef', 'GeneratorExp', 'Global', 'Gt', 'GtE', 'If', 'IfExp', 'Import', 'ImportFrom', 'In', 'Index', 'Interactive', 'Invert', 'Is', 'IsNot', 'LShift', 'Lambda', 'List', 'ListComp', 'Load', 'Lt', 'LtE', 'MatMult', 'Mod', 'Module', 'Mult', 'Name', 'NameConstant', 'NodeTransformer', 'NodeVisitor', 'Nonlocal', 'Not', 'NotEq', 'NotIn', 'Num', 'Or', 'Param', 'Pass', 'Pow', 'PyCF_ONLY_AST', 'RShift', 'Raise', 'Return', 'Set', 'SetComp', 'Slice', 'Starred', 'Store', 'Str', 'Sub', 'Subscript', 'Suite', 'Try', 'Tuple', 'UAdd', 'USub', 'UnaryOp', 'While', 'With', 'Yield', 'YieldFrom', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'alias', 'arg', 'arguments', 'boolop', 'cmpop', 'comprehension', 'copy_location', 'dump', 'excepthandler', 'expr', 'expr_context', 'fix_missing_locations', 'get_docstring', 'increment_lineno', 'iter_child_nodes', 'iter_fields', 'keyword', 'literal_eval', 'mod', 'operator', 'parse', 'slice', 'stmt', 'unaryop', 'walk', 'withitem']
+#NODE_TYPES = ['AST', 'Add', 'And', 'Assert', 'Assign', 'AsyncFor', 'AsyncFunctionDef', 'AsyncWith', 'Attribute', 'AugAssign', 'AugLoad', 'AugStore', 'Await', 'BinOp', 'BitAnd', 'BitOr', 'BitXor', 'BoolOp', 'Break', 'Bytes', 'Call', 'ClassDef', 'Compare', 'Continue', 'Del', 'Delete', 'Dict', 'DictComp', 'Div', 'Ellipsis', 'Eq', 'ExceptHandler', 'Expr', 'Expression', 'ExtSlice', 'FloorDiv', 'For', 'FunctionDef', 'GeneratorExp', 'Global', 'Gt', 'GtE', 'If', 'IfExp', 'Import', 'ImportFrom', 'In', 'Index', 'Interactive', 'Invert', 'Is', 'IsNot', 'LShift', 'Lambda', 'List', 'ListComp', 'Load', 'Lt', 'LtE', 'MatMult', 'Mod', 'Module', 'Mult', 'Name', 'NameConstant', 'NodeTransformer', 'NodeVisitor', 'Nonlocal', 'Not', 'NotEq', 'NotIn', 'Num', 'Or', 'Param', 'Pass', 'Pow', 'PyCF_ONLY_AST', 'RShift', 'Raise', 'Return', 'Set', 'SetComp', 'Slice', 'Starred', 'Store', 'Str', 'Sub', 'Subscript', 'Suite', 'Try', 'Tuple', 'UAdd', 'USub', 'UnaryOp', 'While', 'With', 'Yield', 'YieldFrom', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'alias', 'arg', 'arguments', 'boolop', 'cmpop', 'comprehension', 'copy_location', 'dump', 'excepthandler', 'expr', 'expr_context', 'fix_missing_locations', 'get_docstring', 'increment_lineno', 'iter_child_nodes', 'iter_fields', 'keyword', 'literal_eval', 'mod', 'operator', 'parse', 'slice', 'stmt', 'unaryop', 'walk', 'withitem']
+
+NODE_TYPES = ['AST', 'Add', 'And', 'AnnAssign', 'Assert', 'Assign', 'AsyncFor', 'AsyncFunctionDef', 'AsyncWith', 'Attribute', 'AugAssign', 'AugLoad', 'AugStore', 'Await', 'BinOp', 'BitAnd', 'BitOr', 'BitXor', 'BoolOp', 'Break', 'Bytes', 'Call', 'ClassDef', 'Compare', 'Constant', 'Continue', 'Del', 'Delete', 'Dict', 'DictComp', 'Div', 'Ellipsis', 'Eq', 'ExceptHandler', 'Expr', 'Expression', 'ExtSlice', 'FloorDiv', 'For', 'FormattedValue', 'FunctionDef', 'GeneratorExp', 'Global', 'Gt', 'GtE', 'If', 'IfExp', 'Import', 'ImportFrom', 'In', 'Index', 'Interactive', 'Invert', 'Is', 'IsNot', 'JoinedStr', 'LShift', 'Lambda', 'List', 'ListComp', 'Load', 'Lt', 'LtE', 'MatMult', 'Mod', 'Module', 'Mult', 'Name', 'NameConstant', 'NodeTransformer', 'NodeVisitor', 'Nonlocal', 'Not', 'NotEq', 'NotIn', 'Num', 'Or', 'Param', 'Pass', 'Pow', 'PyCF_ONLY_AST', 'RShift', 'Raise', 'Return', 'Set', 'SetComp', 'Slice', 'Starred', 'Store', 'Str', 'Sub', 'Subscript', 'Suite', 'Try', 'Tuple', 'UAdd', 'USub', 'UnaryOp', 'While', 'With', 'Yield', 'YieldFrom', '_NUM_TYPES', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'alias', 'arg', 'arguments', 'boolop', 'cmpop', 'comprehension', 'copy_location', 'dump', 'excepthandler', 'expr', 'expr_context', 'fix_missing_locations', 'get_docstring', 'increment_lineno', 'iter_child_nodes', 'iter_fields', 'keyword', 'literal_eval', 'mod', 'operator', 'parse', 'slice', 'stmt', 'unaryop', 'walk', 'withitem']
 
 def read_pretrained_vocabs(embeddings_path):
         f = open(embeddings_path, "r")
@@ -80,7 +83,7 @@ class EmbeddingVisitor(ast.NodeVisitor):
             # print("Ended embedding", node)
             # print(lstm_result.size())
             result = lstm_result[0][-1]
-            result = torch.nn.functional.dropout(result, 0.2, training=self.subtree_network.training)
+            result = torch.nn.functional.dropout(result, 0.5, training=self.subtree_network.training)
             # return 
 
             # print(result)
@@ -174,11 +177,14 @@ class ASTEncoder(torch.nn.Module):
 
 
 class Model(torch.nn.Module):
-    def __init__(self, n_classes, embedding_dims):
+    def __init__(self, n_classes, embedding_dims, preprocessed=False):
         super(self.__class__, self).__init__()
         self.ast_encoder = ASTEncoder(embedding_dims)
         self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
         torch.nn.init.xavier_normal_(self.softmax_head[0].weight)
+
+
+        self.preprocessed = preprocessed
         # self.softmax_head = torch.nn.Sequential(
                         ## torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
                         # torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
@@ -187,16 +193,59 @@ class Model(torch.nn.Module):
                         # torch.nn.Softmax(dim=1)
                     # )
 
-
-
     def transform_batch(self, input):
         result = torch.zeros(len(input), self.ast_encoder.embedding_dims)
 
-        for id, code in enumerate(input):
-            result[id] = self.ast_encoder(ast.parse(code))
+        if self.preprocessed:
+            for id, root in enumerate(input):
+                result[id] = self.ast_encoder(root)
+        else:
+            for id, code in enumerate(input):
+                result[id] = self.ast_encoder(ast.parse(code))
 
         return result
+    
+    """
+    def transform_one(self, queue, process_id, batch):
+        result = torch.zeros(len(batch), self.ast_encoder.embedding_dims)
+        if self.preprocessed:
+            for id, root in enumerate(batch):
+                result[id] = self.ast_encoder(root)
+        else:
+            for id, code in enumerate(batch):
+                result[id] = self.ast_encoder(ast.parse(code))
 
+        queue.put(result)
+        queue.close()
+        queue.join_thread()
+
+    def transform_batch(self, input):
+        num_processes = 4
+        self.share_memory()
+        processes = []
+        result_queue = mp.Queue()
+        for rank in range(num_processes):
+            p = mp.Process(target=self.transform_one, args=(result_queue, rank, input))
+            p.start()
+            processes.append(p)
+
+
+        for p in processes:
+            p.join()
+
+
+        result = []
+
+        while not result_queue.empty():
+            result.append(result_queue.get())
+
+
+        print(result)
+
+        result = torch.cat(result, 0)
+
+        return result
+    """
 
     def regularizer(self):
         result = torch.sum(self.ast_encoder.subtree_network.weight_ih_l0 ** 2) + \
