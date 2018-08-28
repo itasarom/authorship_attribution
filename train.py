@@ -13,7 +13,25 @@ import ast
 import os
 from collections import defaultdict
 
-
+def read_all_gcj(path = "../CodeStylometry/Corpus/temp/codejamfolder/py"):
+    result = {}
+    for handle in os.listdir(path):
+        handle_path = os.path.join(path, handle)
+        result_for_handle = defaultdict(str)
+#         for contest in os.listdir(handle_path):
+#             contest_path = os.path.join(handle_path, contest)
+        for solution in os.listdir(handle_path):
+                solution_path = os.path.join(handle_path, solution)
+                with open(solution_path, "r") as f:
+                    try:
+                        result_for_handle[solution] = f.read()
+                    except Exception as e:
+                        print(solution_path)
+                        print(e)
+                    
+        result[handle] = result_for_handle
+        
+    return result
 
 def read_all(path = "../cf/Solutions"):
     result = {}
@@ -31,6 +49,29 @@ def read_all(path = "../cf/Solutions"):
         
     return result
 
+def read_all_anytask(path = "../anytask"):
+    result = defaultdict(dict)
+    for term in os.listdir(path):
+        term_path = os.path.join(path, term)
+        for problem in os.listdir(term_path):
+            problem_path = os.path.join(term_path, problem)
+            for student in os.listdir(problem_path):
+                student_path = os.path.join(problem_path, student)
+                if not os.path.isdir(student_path):
+                    continue
+                for file in os.listdir(student_path):
+                    if not file.endswith(".py"):
+                        continue
+                    file_path = os.path.join(student_path, file)
+                    src = open(file_path, "r").read()
+                    
+                    problem_name = ":".join([term, problem, file])
+                    result[student][problem_name] = src
+                    
+                    
+       
+        
+    return result
 
 class Batcher:
     def __init__(self, data, batch_size):
@@ -247,6 +288,56 @@ def transform_for_problems(d):
             result[problem].append(src)
             
     return result
+
+
+class StratifiedBatcherPreprocessedRandom(StratifiedBatcher):
+    def __init__(self, data, batch_size, train_frac, seed=42):
+
+        self.batch_size = batch_size
+        self.data = data
+        self.classes = list(sorted(data.keys()))
+        train, test = split(data, train_frac, seed)
+
+        self.train_data = train
+        self.test_data = test
+
+        self.class_encoder = {handle:id for id, handle in enumerate(self.classes)}
+
+
+        self.y_train = []
+        self.x_train = []
+        self.y_test = []
+        self.x_test = []
+
+        for handle, submissions in sorted(train.items()):
+            for submission, src in sorted(submissions.items()):
+                    self.y_train.append(self.class_encoder[handle])
+                    self.x_train.append(ast.parse(src))
+
+
+        for handle, submissions in test.items():
+            for submission, src in submissions.items():
+                    self.y_test.append(self.class_encoder[handle])
+                    self.x_test.append(ast.parse(src))
+
+
+        self.y_train = np.array(self.y_train)
+        self.x_train = np.array(self.x_train)
+
+        order = np.random.permutation(np.arange(len(self.x_train)))
+        self.y_train = self.y_train[order]
+        self.x_train = self.x_train[order]
+
+        self.y_test = np.array(self.y_test)
+        self.x_test = np.array(self.x_test)
+
+def transform_for_problems(d):
+    result = defaultdict(list)
+    for handle, result_for_handle in d.items():
+        for problem, src in result_for_handle.items():
+            result[problem].append(src)
+            
+    return result
             
             
 def split_problems(d, train_frac, seed):
@@ -360,15 +451,16 @@ class Trainer:
                 # print(prediction)
                 # print(y)
                 loss = self.loss_object(prediction, y)
-                regularized_loss = loss + 0.01 * self.model.regularizer() #+ 0.1 * torch.norm(prediction, p = 1)
+                regularized_loss = loss + self.model.regularizer() #+ 0.1 * torch.norm(prediction, p = 1)
                 regularized_loss.backward()
                 # print(regularized_loss)
                 
                 grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
                 grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
-                grads_embeddings.append(self.model.ast_encoder.embedding_layer.weight.grad.norm())
+                grads_embeddings.append(self.model.ast_encoder.name_embedding_layer.weight.grad.norm())
+                print(grads_embeddings[-1])
 
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
+#                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
                 self.train_metrics['regularizer'].append((regularized_loss - loss).detach().numpy())
