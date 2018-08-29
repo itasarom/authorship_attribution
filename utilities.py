@@ -4,9 +4,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 import ast
+import pickle as pkl
 
-def dump_model(trainer, dir_name):
-    os.mkdir(dir_name)
+def dump_batcher(batcher, dir_name):
+    with open(os.path.join(dir_name, "batcher_state.pkl"), "wb") as f:
+        d = {
+            "classes":batcher.classes,
+            "x_train":batcher.x_train,
+            "y_train":batcher.y_train,
+            "x_test":batcher.x_test,
+            "y_test":batcher.y_test
+        }
+        
+        if hasattr(batcher, "raw_x_train"):
+            d["raw_x_train"] = batcher.raw_x_train
+            d["raw_x_test"] = batcher.raw_x_test
+        
+        pkl.dump(d, f)
+        
+def load_batcher(batcher, dir_name):
+    with open(os.path.join(dir_name, "batcher_state.pkl"), "rb") as f:
+        d = pkl.load(f)
+        if hasattr(batcher, "raw_x_train"):
+            batcher.raw_x_train = d["raw_x_train"]
+            batcher.raw_x_test = d["raw_x_test"]
+         
+        batcher.classes = d["classes"]
+        batcher.x_train = d["x_train"]
+        batcher.y_train = d["y_train"]
+        batcher.x_test = d["x_test"]
+        batcher.x_test = d["x_test"]
+        batcher.y_test = d["y_test"]
+        
+        
+def dump_all(trainer, model, batcher, dir_name):
+    dump_model(trainer, dir_name)
+    dump_batcher(batcher, dir_name)
+    
+def load_all(trainer, model, batcher, dir_name):
+    load_model(trainer, dir_name)
+    load_batcher(batcher, dir_name)
+    
+
+def dump_model(trainer, dir_name, override=False):
+    os.makedirs(dir_name, exist_ok=override)
     cls = trainer.model
     torch.save(cls.state_dict(), os.path.join(dir_name, "model_state.tc"))
     torch.save(trainer.optimizer, os.path.join(dir_name, "optimizer.tc"))

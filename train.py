@@ -9,6 +9,7 @@ from sklearn.metrics import log_loss, accuracy_score
 import matplotlib.pyplot as plt
 from IPython import display
 import ast
+import utilities
 
 import os
 from collections import defaultdict
@@ -258,17 +259,21 @@ class StratifiedBatcherPreprocessed(StratifiedBatcher):
         self.x_train = []
         self.y_test = []
         self.x_test = []
+        self.x_raw_train = []
+        self.x_raw_test = []
 
         for handle, submissions in sorted(train.items()):
             for submission, src in sorted(submissions.items()):
                     self.y_train.append(self.class_encoder[handle])
                     self.x_train.append(ast.parse(src))
+                    self.x_raw_train.append(src)
 
 
         for handle, submissions in test.items():
             for submission, src in submissions.items():
                     self.y_test.append(self.class_encoder[handle])
                     self.x_test.append(ast.parse(src))
+                    self.x_raw_test.append(src)
 
 
         self.y_train = np.array(self.y_train)
@@ -308,17 +313,21 @@ class StratifiedBatcherPreprocessedRandom(StratifiedBatcher):
         self.x_train = []
         self.y_test = []
         self.x_test = []
+        self.x_raw_train = []
+        self.x_raw_test = []
 
         for handle, submissions in sorted(train.items()):
             for submission, src in sorted(submissions.items()):
                     self.y_train.append(self.class_encoder[handle])
                     self.x_train.append(ast.parse(src))
+                    self.x_raw_train.append(src)
 
 
         for handle, submissions in test.items():
             for submission, src in submissions.items():
                     self.y_test.append(self.class_encoder[handle])
                     self.x_test.append(ast.parse(src))
+                    self.x_raw_test.append(src)
 
 
         self.y_train = np.array(self.y_train)
@@ -400,9 +409,10 @@ class StratifiedProblemBatcher(StratifiedBatcher):
 
 
 class Trainer:
-    def __init__(self, model, loss_object, optimizer):
-
-        torch.optim.lr_scheduler.StepLR(optimizer, step_size=150, gamma=0.5)
+    def __init__(self, model, loss_object, optimizer, track_metric, path):
+        
+        self.track_metric = track_metric
+        self.path = path
         self.model = model
         self.loss_object = loss_object
         self.optimizer = optimizer
@@ -411,26 +421,79 @@ class Trainer:
         self.validation_metrics = defaultdict(list)
         self.all_params = {}
         
-    def save(self, path):
-        torch.save(self.model.state_dict(), path)
-
+    def save_last_state(self):
+#         torch.save(self.model.state_dict(), path)
+        utilities.dump_model(self, os.path.join(path, "last_state"), override=True)
+   
+    def is_best_state(self):
+        metric_name = self.track_metric['metric_name']
+        if self.track_metric['function'](self.validation_metrics[metric_name]):
+            utilities.dump_model(self, os.path.join(path, "best_state"), override=True)
                 
-    def restore(self, path):
-        if self.global_iterations > 0:
-            raise ValueError(
-                "Cannot restore variables to an already trained model! (Trained for {} global iterations)"\
-                    .format(self.global_iterations))
+#     def restore(self, path):
+#         if self.global_iterations > 0:
+#             raise ValueError(
+#                 "Cannot restore variables to an already trained model! (Trained for {} global iterations)"\
+#                     .format(self.global_iterations))
             
-        self.model.load_state_dict(torch.load(path))
-
+#         self.model.load_state_dict(torch.load(path))
+    
+    
+#     def run_prediction(self, 
 
     
-    def log_global_iteration(self):
-        pass
+    def plot_all(self):
+        display.clear_output(wait=True)
+        plt.figure(figsize=(15, 10))
+        plt.grid()
+        plt.plot(self.train_metrics['loss'], color='red', label='train')
+        plt.plot(self.validation_metrics['validation_iterations'], self.validation_metrics['loss'], color='blue', label='val')
+        plt.legend()
+        plt.show()
+
+        plt.figure(figsize=(15, 10))
+        plt.grid()
+        plt.plot(self.validation_metrics['validation_iterations'], self.validation_metrics['loss'], color='blue', label='val')
+        plt.legend()
+        plt.show()
+
+        plt.figure(figsize=(15, 10))
+        plt.grid()
+        plt.plot(self.train_metrics['regularizer'], color='red', label='train')
+        plt.legend()
+        plt.show()
+
+        plt.figure(figsize=(15, 10))
+        plt.grid()
+        plt.plot(self.train_metrics['accuracy'], color='red', label='train')
+        plt.plot(self.validation_metrics['accuracy'], color='blue', label='val')
+        plt.legend()
+        plt.show()
+
+        plt.figure(figsize=(15, 10))
+        plt.grid()
+        plt.plot(self.train_metrics['grads_1'])
+        plt.plot(self.train_metrics['grads_2'])
+        plt.plot(self.train_metrics['grads_embeddings'], label='embeddings')
+        plt.legend()
+        plt.show()
 
 
-    def validate(self):
-        pass
+    def validate(self, sampler):
+        z = 0
+        n_items = 0
+        loss_acc = 0
+        for x, y in sampler:
+            prediction = self.model(x)
+            loss_acc += self.loss_object(prediction, y).detach().numpy() * len(x)
+            _, prediction = prediction.max(dim=1)
+            z += np.count_nonzero(prediction == y)
+            n_items += len(prediction)
+        
+        return loss_acc/n_items, z/n_items
+#         self.validation_metrics['validation_iterations'].append(len(self.train_metrics['loss']))
+#         self.validation_metrics['loss'].append(loss_acc/n_items)
+#         self.validation_metrics['accuracy'].append(z/n_items)
 
 
 
@@ -438,9 +501,9 @@ class Trainer:
     def train(self, batch_sampler, params):
         self.model.train()
 
-        grads_1 = []
-        grads_2 = []
-        grads_embeddings = []
+#         grads_1 = []
+#         grads_2 = []
+#         grads_embeddings = []
         for epoch_id in range(params['n_epochs']):
             self.model.train()
             start_time = time.time()
@@ -455,86 +518,61 @@ class Trainer:
                 regularized_loss.backward()
                 # print(regularized_loss)
                 
-                grads_1.append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
-                grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
-                grads_embeddings.append(self.model.ast_encoder.name_embedding_layer.weight.grad.norm())
-                print(grads_embeddings[-1])
+                self.train_metrics['grads_1'].append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
+                self.train_metrics['grads_2'].append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
+#                 grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
+                self.train_metrics['grads_embeddings'].append(self.model.ast_encoder.name_embedding_layer.weight.grad.norm())
+#                 print(grads_embeddings[-1])
 
 #                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
                 self.optimizer.step()
                 self.train_metrics['loss'].append(loss.detach().numpy())
                 self.train_metrics['regularizer'].append((regularized_loss - loss).detach().numpy())
-
-                display.clear_output(wait=True)
-                plt.figure(figsize=(15, 10))
-                plt.grid()
-                plt.plot(self.train_metrics['loss'], color='red', label='train')
-                plt.plot(self.validation_metrics['validation_iterations'], self.validation_metrics['loss'], color='blue', label='val')
-                plt.legend()
-                plt.show()
-
-                plt.figure(figsize=(15, 10))
-                plt.grid()
-                plt.plot(self.validation_metrics['validation_iterations'], self.validation_metrics['loss'], color='blue', label='val')
-                plt.legend()
-                plt.show()
-
-                plt.figure(figsize=(15, 10))
-                plt.grid()
-                plt.plot(self.train_metrics['regularizer'], color='red', label='train')
-                plt.legend()
-                plt.show()
-
-                plt.figure(figsize=(15, 10))
-                plt.grid()
-                plt.plot(self.train_metrics['accuracy'], color='red', label='train')
-                plt.plot(self.validation_metrics['accuracy'], color='blue', label='val')
-                plt.legend()
-                plt.show()
-
-                plt.figure(figsize=(15, 10))
-                plt.grid()
-                plt.plot(grads_1)
-                plt.plot(grads_2)
-                plt.plot(grads_embeddings, label='embeddings')
-                plt.legend()
-                plt.show()
+                
+                self.plot_all()
+                
                 # print(y)
                 # print(prediction)
 
-            print("Epoch took ", time.time() - start_time)
+#             print("Epoch took ", time.time() - start_time)
             #print(self.train_metrics['loss'][-1])
 
 
-            if epoch_id % 2 == 0:
+            if epoch_id % params['validate_every'] == 0:
                 self.model.eval()
-                z = 0
-                n_items = 0
-                for x, y in batch_sampler.train():
-                    prediction = self.model(x)
-                    print(prediction)
-                    _, prediction = prediction.max(dim=1)
-                    z += np.count_nonzero(prediction == y)
-                    n_items += len(prediction)
-                    print(prediction)
+                loss, accuracy = self.validate(batch_sample.train())
+                self.train_metrics['accuracy'].append(accuracy)
+#                 z = 0
+#                 n_items = 0
+#                 for x, y in batch_sampler.train():
+#                     prediction = self.model(x)
+#                     print(prediction)
+#                     _, prediction = prediction.max(dim=1)
+#                     z += np.count_nonzero(prediction == y)
+#                     n_items += len(prediction)
+#                     print(prediction)
 
-                self.train_metrics['accuracy'].append(z/n_items)
-                print(self.train_metrics['accuracy'][-1])
+#                 self.train_metrics['accuracy'].append(z/n_items)
+#                 print(self.train_metrics['accuracy'][-1])
 
 
-                z = 0
-                n_items = 0
-                loss_acc = 0
-                for x, y in batch_sampler.test():
-                    prediction = self.model(x)
-                    loss_acc += self.loss_object(prediction, y).detach().numpy() * len(x)
-                    _, prediction = prediction.max(dim=1)
-                    z += np.count_nonzero(prediction == y)
-                    n_items += len(prediction)
+#                 z = 0
+#                 n_items = 0
+#                 loss_acc = 0
+#                 for x, y in batch_sampler.test():
+#                     prediction = self.model(x)
+#                     loss_acc += self.loss_object(prediction, y).detach().numpy() * len(x)
+#                     _, prediction = prediction.max(dim=1)
+#                     z += np.count_nonzero(prediction == y)
+#                     n_items += len(prediction)
+                loss, accuracy = self.validate(batch_sample.test())
 
                 self.validation_metrics['validation_iterations'].append(len(self.train_metrics['loss']))
-                self.validation_metrics['loss'].append(loss_acc/n_items)
-                self.validation_metrics['accuracy'].append(z/n_items)
-                print(self.validation_metrics['accuracy'][-1])
+                self.validation_metrics['loss'].append(loss)
+                self.validation_metrics['accuracy'].append(accuracy)
+#                 print(self.validation_metrics['accuracy'][-1])/
+                self.is_best_state()
+    
+              self.save_last_state()
 
             # raise ValueError()

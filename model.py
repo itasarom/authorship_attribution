@@ -2,47 +2,50 @@ import numpy as np
 import torch
 import ast
 import torch.multiprocessing as mp
+import os
+import json
 
 
 # NODE_TYPES = ['AST', 'Add', 'And', 'Assert', 'Assign', 'AsyncFor', 'AsyncFunctionDef', 'AsyncWith', 'Attribute', 'AugAssign', 'AugLoad', 'AugStore', 'Await', 'BinOp', 'BitAnd', 'BitOr', 'BitXor', 'BoolOp', 'Break', 'Bytes', 'Call', 'ClassDef', 'Compare', 'Continue', 'Del', 'Delete', 'Dict', 'DictComp', 'Div', 'Ellipsis', 'Eq', 'ExceptHandler', 'Expr', 'Expression', 'ExtSlice', 'FloorDiv', 'For', 'FunctionDef', 'GeneratorExp', 'Global', 'Gt', 'GtE', 'If', 'IfExp', 'Import', 'ImportFrom', 'In', 'Index', 'Interactive', 'Invert', 'Is', 'IsNot', 'LShift', 'Lambda', 'List', 'ListComp', 'Load', 'Lt', 'LtE', 'MatMult', 'Mod', 'Module', 'Mult', 'Name', 'NameConstant', 'NodeTransformer', 'NodeVisitor', 'Nonlocal', 'Not', 'NotEq', 'NotIn', 'Num', 'Or', 'Param', 'Pass', 'Pow', 'PyCF_ONLY_AST', 'RShift', 'Raise', 'Return', 'Set', 'SetComp', 'Slice', 'Starred', 'Store', 'Str', 'Sub', 'Subscript', 'Suite', 'Try', 'Tuple', 'UAdd', 'USub', 'UnaryOp', 'While', 'With', 'Yield', 'YieldFrom', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'alias', 'arg', 'arguments', 'boolop', 'cmpop', 'comprehension', 'copy_location', 'dump', 'excepthandler', 'expr', 'expr_context', 'fix_missing_locations', 'get_docstring', 'increment_lineno', 'iter_child_nodes', 'iter_fields', 'keyword', 'literal_eval', 'mod', 'operator', 'parse', 'slice', 'stmt', 'unaryop', 'walk', 'withitem']
 
 NODE_TYPES = ['AST', 'Add', 'And', 'AnnAssign', 'Assert', 'Assign', 'AsyncFor', 'AsyncFunctionDef', 'AsyncWith', 'Attribute', 'AugAssign', 'AugLoad', 'AugStore', 'Await', 'BinOp', 'BitAnd', 'BitOr', 'BitXor', 'BoolOp', 'Break', 'Bytes', 'Call', 'ClassDef', 'Compare', 'Constant', 'Continue', 'Del', 'Delete', 'Dict', 'DictComp', 'Div', 'Ellipsis', 'Eq', 'ExceptHandler', 'Expr', 'Expression', 'ExtSlice', 'FloorDiv', 'For', 'FormattedValue', 'FunctionDef', 'GeneratorExp', 'Global', 'Gt', 'GtE', 'If', 'IfExp', 'Import', 'ImportFrom', 'In', 'Index', 'Interactive', 'Invert', 'Is', 'IsNot', 'JoinedStr', 'LShift', 'Lambda', 'List', 'ListComp', 'Load', 'Lt', 'LtE', 'MatMult', 'Mod', 'Module', 'Mult', 'Name', 'NameConstant', 'NodeTransformer', 'NodeVisitor', 'Nonlocal', 'Not', 'NotEq', 'NotIn', 'Num', 'Or', 'Param', 'Pass', 'Pow', 'PyCF_ONLY_AST', 'RShift', 'Raise', 'Return', 'Set', 'SetComp', 'Slice', 'Starred', 'Store', 'Str', 'Sub', 'Subscript', 'Suite', 'Try', 'Tuple', 'UAdd', 'USub', 'UnaryOp', 'While', 'With', 'Yield', 'YieldFrom', '_NUM_TYPES', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'alias', 'arg', 'arguments', 'boolop', 'cmpop', 'comprehension', 'copy_location', 'dump', 'excepthandler', 'expr', 'expr_context', 'fix_missing_locations', 'get_docstring', 'increment_lineno', 'iter_child_nodes', 'iter_fields', 'keyword', 'literal_eval', 'mod', 'operator', 'parse', 'slice', 'stmt', 'unaryop', 'walk', 'withitem']
 
-def read_pretrained_vocabs(embeddings_path):
-        f = open(embeddings_path, "r")
-        embeddings  = []
-        words = []
+# def read_pretrained_vocabs(embeddings_path):
+#         f = open(embeddings_path, "r")
+#         embeddings  = []
+#         words = []
 
-        n_words, embedding_dim = map(int, f.readline().strip().split())
-        bad_words = 0
+#         n_words, embedding_dim = map(int, f.readline().strip().split())
+#         bad_words = 0
 
-        word_set = set()
-        for line in f:
-            line = line.strip().split(" ")
-            word = line[0]
-            vec = np.array(list(map(float, line[1:]))).reshape(1, -1)
+#         word_set = set()
+#         for line in f:
+#             line = line.strip().split(" ")
+#             word = line[0]
+#             vec = np.array(list(map(float, line[1:]))).reshape(1, -1)
 
-            word_set.add(word)
-            words.append(word) 
-            embeddings.append(vec)
-            assert embedding_dim == vec.shape[1], (embedding_dim, vec.shape[1], vec)
+#             word_set.add(word)
+#             words.append(word) 
+#             embeddings.append(vec)
+#             assert embedding_dim == vec.shape[1], (embedding_dim, vec.shape[1], vec)
                 
         
-        # print(self.embeddings[0])
-        transformation = dict(zip(words, range(len(words))))
-        embeddings  = torch.from_numpy(np.vstack(embeddings))
+#         # print(self.embeddings[0])
+#         transformation = dict(zip(words, range(len(words))))
+#         embeddings  = torch.from_numpy(np.vstack(embeddings))
 
-        return embedding_dim, transformation, embeddings
+#         return embedding_dim, transformation, embeddings
 
 
 class EmbeddingVisitor(ast.NodeVisitor):
-    def __init__(self, embedding_layer, subtree_network, embedding_network):
+    def __init__(self, embedding_layer, subtree_network, params):
         super(EmbeddingVisitor, self).__init__()
+        self.params = params
         self.embedding_dim = embedding_layer.embedding_dim
         self.embedding_layer = embedding_layer
         self.subtree_network = subtree_network
 
-        self.embedding_network = embedding_network
+#         self.embedding_network = embedding_network
         self.mapping = {name : index for index, name in enumerate(NODE_TYPES)}
 
     def visit(self, node):
@@ -83,7 +86,7 @@ class EmbeddingVisitor(ast.NodeVisitor):
             # print("Ended embedding", node)
             # print(lstm_result.size())
             result = lstm_result[0][-1]
-        result = torch.nn.functional.dropout(result, 0.2, training=self.subtree_network.training)
+        result = torch.nn.functional.dropout(result, self.params['dropout'], training=self.subtree_network.training)
             # return 
 
             # print(result)
@@ -115,36 +118,38 @@ class EmbeddingVisitor(ast.NodeVisitor):
         return children_embeddings
 
 
-def init_ast_embeddings(n_nodes, embedding_dims, pre_init=False):
-    embedding_layer = torch.nn.Embedding(n_nodes, embedding_dims)
+def init_ast_embeddings(n_nodes, params):
+    embedding_layer = torch.nn.Embedding(n_nodes, params['embedding_dims'])
     torch.nn.init.xavier_normal_(embedding_layer.weight)
-    if not pre_init:
-        return embedding_layer
-
-    embedding_dim, transformation, embeddings = read_pretrained_vocabs("../training_embeddings_tree/trained_embeddings_2.vec")
-
-    new_weight = torch.rand(n_nodes, embedding_dims)
-    for word, id in transformation.items():
-        if word not in NODE_TYPES:
-            continue 
-        else:
-            new_weight[NODE_TYPES.index(word)] = embeddings[id]
-
-
-    embedding_layer.weight.data = new_weight
-
+#     if not pre_init:
     return embedding_layer
+
+#     embedding_dim, transformation, embeddings = read_pretrained_vocabs("../training_embeddings_tree/trained_embeddings_2.vec")
+
+#     new_weight = torch.rand(n_nodes, embedding_dims)
+#     for word, id in transformation.items():
+#         if word not in NODE_TYPES:
+#             continue 
+#         else:
+#             new_weight[NODE_TYPES.index(word)] = embeddings[id]
+
+
+#     embedding_layer.weight.data = new_weight
+
+#     return embedding_layer
 
 
 class ASTEncoder(torch.nn.Module):
-    def __init__(self, embedding_dims):
+    def __init__(self, params):
         super(ASTEncoder, self).__init__()
         n_nodes = len(NODE_TYPES)
-
+        
+        params['NODE_TYPES'] = NODE_TYPES
         # embedding_dims = n_nodes
-        self.embedding_dims = embedding_dims
+        self.embedding_dims = params['embedding_dims']
+        self.params = params
         # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
-        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=1, dropout=0.0, batch_first=True)
+        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=params['num_layers'], dropout=params['dropout'], batch_first=True)
 
         torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
         torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
@@ -166,26 +171,43 @@ class ASTEncoder(torch.nn.Module):
         #                        torch.nn.Linear(256, embedding_dims)
         #                    )
         
-        self.embedding_layer = init_ast_embeddings(n_nodes, embedding_dims, False)
+        self.embedding_layer = init_ast_embeddings(n_nodes, self.params)
         
         # self.embedding_layer.weight.
 
         self.visitor = EmbeddingVisitor(self.embedding_layer, self.subtree_network, None)
-
+        
+    def save(self, path):
+        torch.save(self.embedding_layer.state_dict(), os.path.join(path, "ast_embeddings.tc"))
+        torch.save(self.subtree_network.state_dict(), os.path.join(path, "subtree_network.tc"))
+         with open(os.path.join(path, "ast_encoder_params.json"), "w") as f:
+            f.write(json.dumps(self.params, sort_keys=True, indent=4))
+    
+    def load(self, path):
+        self.embedding_layer.load_state_dict(torch.load(os.path.join(path, "ast_embeddings.tc")))
+        self.subtree_network.load_state_dict(torch.load(os.path.join(path, "subtree_network.tc")))
+         with open(os.path.join(path, "ast_encoder_params.json")) as f:
+            self.params = json.loads(f.read())
+    
+        
     def forward(self, node):
         return self.visitor.visit(node)
 
 
 class Model(torch.nn.Module):
-    def __init__(self, n_classes, embedding_dims, preprocessed=False):
+    def __init__(self, params):
         # print(self.__class__)
         super(Model, self).__init__()
-        self.ast_encoder = ASTEncoder(embedding_dims)
+        self.params = params
+        n_classes = self.params['n_classes']
+#         embedding_dims = self.params['embedding_dims']
+        
+        self.ast_encoder = ASTEncoder(params['encoder_params'])
         self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
         torch.nn.init.xavier_normal_(self.softmax_head[0].weight)
 
 
-        self.preprocessed = preprocessed
+#         self.preprocessed = preprocessed
         # self.softmax_head = torch.nn.Sequential(
                         ## torch.nn.BatchNorm1d(self.ast_encoder.embedding_dims),
                         # torch.nn.Linear(self.ast_encoder.embedding_dims, 256),
@@ -193,15 +215,27 @@ class Model(torch.nn.Module):
                         # torch.nn.Linear(256, n_classes),
                         # torch.nn.Softmax(dim=1)
                     # )
+                    
+    def save(self, path):
+        self.ast_encoder.save(path)
+        torch.save(self.softmax_head.state_dict(), os.path.join(path, "softmax_head.tc"))
+        with open(os.path.join(path, "model_params.json"), "w") as f:
+            f.write(json.dumps(self.params, sort_keys=True, indent=4))
+    
+    def load(self. path):
+        self.ast_encoder.load(path)
+        self.softmax_head.load_state_dict(torch.load(os.path.join(path, "softmax_head.tc")))
+        with open(os.path.join(path, "model_params.json")) as f:
+            self.params = json.loads(f.read())
 
     def transform_batch(self, input):
         result = torch.zeros(len(input), self.ast_encoder.embedding_dims)
 
-        if self.preprocessed:
-            for id, root in enumerate(input):
-                result[id] = self.ast_encoder(root)
-        else:
-            for id, code in enumerate(input):
+#         if self.preprocessed:
+#             for id, root in enumerate(input):
+#                 result[id] = self.ast_encoder(root)
+#         else:
+        for id, code in enumerate(input):
                 result[id] = self.ast_encoder(ast.parse(code))
 
         return result
@@ -264,7 +298,7 @@ class Model(torch.nn.Module):
 
 
 #         return result
-        return 0.001 * result
+        return self.params['reqularizer_alpha'] * result
 
 
     def forward(self, input):
@@ -290,16 +324,20 @@ class Model(torch.nn.Module):
 #==================================================
 import pickle
 class NameEmbeddingVisitor(EmbeddingVisitor):
-    def __init__(self, embedding_layer, name_mapping,  name_embedding_layer, name_combiner, subtree_network):
-        super(self.__class__, self).__init__(embedding_layer, subtree_network, None)
-        self.OOV_ID = 0
+    def __init__(self, embedding_layer, name_mapping,  name_embedding_layer, name_combiner, subtree_network, params):
+        super(self.__class__, self).__init__(embedding_layer, subtree_network, params)
+        
+        self.OOV_ID = params['OOV_ID']
+        self.nodes_with_names = {"Name", "Attribute"}
+#         self.params['OOV_ID'] = self.OOV_ID
+        self.params['nodes_with_names'] = self.nodes_with_names
 
         
         self.name_mapping = name_mapping
         self.name_combiner = name_combiner
         self.name_embedding_layer = name_embedding_layer
 
-        self.nodes_with_names = {"Name", "Attribute"}
+        
         # self.embedding_dim = embedding_layer.embedding_dim
         # self.embedding_layer = embedding_layer
         # self.subtree_network = subtree_network
@@ -339,8 +377,9 @@ class NameEmbeddingVisitor(EmbeddingVisitor):
 
 
 class NameASTEncoder(ASTEncoder):
-    def __init__(self, embedding_dims, name_embedding_dims, combiner_dims):
-        super(self.__class__, self).__init__(embedding_dims)
+#     embedding_dims, name_embedding_dims, combiner_dims
+    def __init__(self, params):
+        super(NameASTEncoder, self).__init__(params)
         n_nodes = len(NODE_TYPES)
 
         # self.embedding_dims = embedding_dims
@@ -354,12 +393,13 @@ class NameASTEncoder(ASTEncoder):
 
         # self.embedding_layer = init_ast_embeddings(n_nodes, embedding_dims, False)
 
-        most_common_names_file = "most_common_names.pkl"
+#         most_common_names_file = "most_common_names.pkl"
+        most_common_names_file = self.params['most_common_names_file']
         with open(most_common_names_file, "rb") as f:
             names = pickle.load(f)
 
         self.name_mapping = {name : index for index, (name, count) in enumerate(names)}
-        self.name_mapping["<OOV>"] = 0
+        self.name_mapping["<OOV>"] = params["OOV_ID"]
 
 
         self.name_embedding_layer = init_ast_embeddings(len(self.name_mapping), name_embedding_dims)
@@ -370,6 +410,16 @@ class NameASTEncoder(ASTEncoder):
             )
 
         self.visitor = NameEmbeddingVisitor(self.embedding_layer, self.name_mapping, self.name_embedding_layer, self.name_combiner, self.subtree_network)
+        
+    def save(self, path):
+        super(NameASTEncoder, self).save(path)
+        torch.save(self.name_embedding_layer.state_dict(), os.path.join(path, "name_embeddings.tc"))
+        torch.save(self.name_combiner.state_dict(), os.path.join(path, "name_combiner.tct"))
+        
+    def load(self, load):
+        super(NameASTEncoder, self).load(path)
+        self.name_embedding_layer.load_state_dict(torch.load(os.path.join(path, "name_embeddings.tc")))
+        self.name_combiner.load_state_dict(torch.load(os.path.join(path, "name_combiner.tct")))
 
 
 class NameModel(Model):
