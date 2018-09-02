@@ -149,7 +149,7 @@ class ASTEncoder(torch.nn.Module):
         self.embedding_dims = params['embedding_dims']
         self.params = params
         # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
-        self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=params['num_layers'], dropout=params['dropout'], batch_first=True)
+        self.subtree_network = torch.nn.LSTM(self.embedding_dims, self.embedding_dims, num_layers=params['num_layers'], dropout=params['rnn_dropout'], batch_first=True)
 
         torch.nn.init.xavier_normal_(self.subtree_network.weight_ih_l0)
         torch.nn.init.xavier_normal_(self.subtree_network.weight_hh_l0)
@@ -175,18 +175,18 @@ class ASTEncoder(torch.nn.Module):
         
         # self.embedding_layer.weight.
 
-        self.visitor = EmbeddingVisitor(self.embedding_layer, self.subtree_network, None)
+        self.visitor = EmbeddingVisitor(self.embedding_layer, self.subtree_network, self.params)
         
     def save(self, path):
         torch.save(self.embedding_layer.state_dict(), os.path.join(path, "ast_embeddings.tc"))
         torch.save(self.subtree_network.state_dict(), os.path.join(path, "subtree_network.tc"))
-         with open(os.path.join(path, "ast_encoder_params.json"), "w") as f:
+        with open(os.path.join(path, "ast_encoder_params.json"), "w") as f:
             f.write(json.dumps(self.params, sort_keys=True, indent=4))
     
     def load(self, path):
         self.embedding_layer.load_state_dict(torch.load(os.path.join(path, "ast_embeddings.tc")))
         self.subtree_network.load_state_dict(torch.load(os.path.join(path, "subtree_network.tc")))
-         with open(os.path.join(path, "ast_encoder_params.json")) as f:
+        with open(os.path.join(path, "ast_encoder_params.json")) as f:
             self.params = json.loads(f.read())
     
         
@@ -222,7 +222,7 @@ class Model(torch.nn.Module):
         with open(os.path.join(path, "model_params.json"), "w") as f:
             f.write(json.dumps(self.params, sort_keys=True, indent=4))
     
-    def load(self. path):
+    def load(self, path):
         self.ast_encoder.load(path)
         self.softmax_head.load_state_dict(torch.load(os.path.join(path, "softmax_head.tc")))
         with open(os.path.join(path, "model_params.json")) as f:
@@ -298,7 +298,7 @@ class Model(torch.nn.Module):
 
 
 #         return result
-        return self.params['reqularizer_alpha'] * result
+        return self.params['regularizer_alpha'] * result
 
 
     def forward(self, input):
@@ -310,7 +310,31 @@ class Model(torch.nn.Module):
         result = self.softmax_head(embeddings)
 
         return result
-
+    
+    def get_representations(self, input):
+        return self.transform_batch(input)
+    
+    def predict_proba(self, input):
+        return torch.nn.functional.softmax(self.forward(input), dim=1)
+    
+    def predict(self, input):
+        return self.predict_proba(input).max(dim=1)
+    
+    
+    def predict_proba_batches(self, input, batch_size=64):
+        result = []
+        for pos in range(0, len(input), batch_size):
+            result.append(self.predict_proba(input[pos:pos+batch_size]))
+        
+        result = torch.cat(result)
+        
+        return result
+    
+    def predict_batches(self, input, batch_size=64):
+        result = self.predict_proba_batches(input).max(dim=1)
+        
+        return result
+        
 
 
 
@@ -330,7 +354,7 @@ class NameEmbeddingVisitor(EmbeddingVisitor):
         self.OOV_ID = params['OOV_ID']
         self.nodes_with_names = {"Name", "Attribute"}
 #         self.params['OOV_ID'] = self.OOV_ID
-        self.params['nodes_with_names'] = self.nodes_with_names
+        self.params['nodes_with_names'] = list(self.nodes_with_names)
 
         
         self.name_mapping = name_mapping
@@ -381,7 +405,9 @@ class NameASTEncoder(ASTEncoder):
     def __init__(self, params):
         super(NameASTEncoder, self).__init__(params)
         n_nodes = len(NODE_TYPES)
-
+        
+        embedding_dims = params['embedding_dims']
+#         name_embedding_dims, combiner_dims
         # self.embedding_dims = embedding_dims
         # # self.subtree_network = torch.nn.LSTMCell(embedding_dims, embedding_dims)
         # self.subtree_network = torch.nn.LSTM(embedding_dims, embedding_dims, num_layers=1, dropout=0.0, batch_first=True)
@@ -398,18 +424,19 @@ class NameASTEncoder(ASTEncoder):
         with open(most_common_names_file, "rb") as f:
             names = pickle.load(f)
 
-        self.name_mapping = {name : index for index, (name, count) in enumerate(names)}
+        self.name_mapping = {name : params["OOV_ID"] + index + 1 for index, (name, count) in enumerate(names)}
         self.name_mapping["<OOV>"] = params["OOV_ID"]
+        self.params['name_mapping'] = self.name_mapping
 
 
-        self.name_embedding_layer = init_ast_embeddings(len(self.name_mapping), name_embedding_dims)
+        self.name_embedding_layer = init_ast_embeddings(len(self.name_mapping), params)
         self.name_combiner = torch.nn.Sequential(
-                torch.nn.Linear(embedding_dims + name_embedding_dims, combiner_dims),
+                torch.nn.Linear(params['embedding_dims'] + params['name_embedding_dims'], params['combiner_dims']),
                 torch.nn.ReLU(),
-                torch.nn.Linear(combiner_dims, embedding_dims)
+                torch.nn.Linear(params['combiner_dims'], params['embedding_dims'])
             )
 
-        self.visitor = NameEmbeddingVisitor(self.embedding_layer, self.name_mapping, self.name_embedding_layer, self.name_combiner, self.subtree_network)
+        self.visitor = NameEmbeddingVisitor(self.embedding_layer, self.name_mapping, self.name_embedding_layer, self.name_combiner, self.subtree_network, params)
         
     def save(self, path):
         super(NameASTEncoder, self).save(path)
@@ -423,7 +450,18 @@ class NameASTEncoder(ASTEncoder):
 
 
 class NameModel(Model):
-    def __init__(self, n_classes, embedding_dims, name_embedding_dims, combiner_dims):
-        super(self.__class__, self).__init__(n_classes, embedding_dims, preprocessed=True)
-        self.ast_encoder = NameASTEncoder(embedding_dims, name_embedding_dims, combiner_dims)
-        self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
+    def __init__(self, params):
+        super(self.__class__, self).__init__(params)
+        self.ast_encoder = NameASTEncoder(params['encoder_params'])
+#         self.softmax_head = torch.nn.Sequential(torch.nn.Linear(self.ast_encoder.embedding_dims, n_classes))
+
+    def regularizer(self):
+#         print(super(Model
+        result = super(NameModel, self).regularizer()
+        current =  torch.sum(self.ast_encoder.name_combiner[0].weight ** 2) + \
+                torch.sum(self.ast_encoder.name_combiner[2].weight ** 2) + \
+                torch.sum(self.ast_encoder.name_embedding_layer.weight ** 2)
+            
+        result += self.params.get('regularizer_alpha_names', self.params['regularizer_alpha']) * current
+        
+        return result

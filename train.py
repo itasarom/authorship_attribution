@@ -10,69 +10,81 @@ import matplotlib.pyplot as plt
 from IPython import display
 import ast
 import utilities
+import copy
 
 import os
 from collections import defaultdict
 
-def read_all_gcj(path = "../CodeStylometry/Corpus/temp/codejamfolder/py"):
-    result = {}
-    for handle in os.listdir(path):
-        handle_path = os.path.join(path, handle)
-        result_for_handle = defaultdict(str)
+
+
+# def read_all_gcj(path = "../CodeStylometry/Corpus/temp/codejamfolder/py"):
+#     result = {}
+#     for handle in os.listdir(path):
+#         handle_path = os.path.join(path, handle)
+#         result_for_handle = defaultdict(str)
+# #         for contest in os.listdir(handle_path):
+# #             contest_path = os.path.join(handle_path, contest)
+#         for solution in os.listdir(handle_path):
+#                 solution_path = os.path.join(handle_path, solution)
+#                 with open(solution_path, "r") as f:
+#                     try:
+#                         result_for_handle[solution] = f.read()
+#                     except Exception as e:
+#                         print(solution_path)
+#                         print(e)
+                    
+#         result[handle] = result_for_handle
+        
+#     return result
+
+# def read_all(path = "../cf/Solutions"):
+#     result = {}
+#     for handle in os.listdir(path):
+#         handle_path = os.path.join(path, handle)
+#         result_for_handle = defaultdict(list)
 #         for contest in os.listdir(handle_path):
 #             contest_path = os.path.join(handle_path, contest)
-        for solution in os.listdir(handle_path):
-                solution_path = os.path.join(handle_path, solution)
-                with open(solution_path, "r") as f:
-                    try:
-                        result_for_handle[solution] = f.read()
-                    except Exception as e:
-                        print(solution_path)
-                        print(e)
+#             for solution in os.listdir(contest_path):
+#                 solution_path = os.path.join(contest_path, solution)
+#                 with open(solution_path, "r") as f:
+#                     result_for_handle[contest + ":" + solution] = f.read()
                     
-        result[handle] = result_for_handle
+#         result[handle] = result_for_handle
         
-    return result
+#     return result
 
-def read_all(path = "../cf/Solutions"):
-    result = {}
-    for handle in os.listdir(path):
-        handle_path = os.path.join(path, handle)
-        result_for_handle = defaultdict(list)
-        for contest in os.listdir(handle_path):
-            contest_path = os.path.join(handle_path, contest)
-            for solution in os.listdir(contest_path):
-                solution_path = os.path.join(contest_path, solution)
-                with open(solution_path, "r") as f:
-                    result_for_handle[contest + ":" + solution] = f.read()
+# def read_all_anytask(path = "../anytask"):
+#     result = defaultdict(dict)
+#     for term in os.listdir(path):
+#         term_path = os.path.join(path, term)
+#         for problem in os.listdir(term_path):
+#             problem_path = os.path.join(term_path, problem)
+#             for student in os.listdir(problem_path):
+#                 student_path = os.path.join(problem_path, student)
+#                 if not os.path.isdir(student_path):
+#                     continue
+#                 for file in os.listdir(student_path):
+#                     if not file.endswith(".py"):
+#                         continue
+#                     file_path = os.path.join(student_path, file)
+#                     src = open(file_path, "r").read()
                     
-        result[handle] = result_for_handle
-        
-    return result
-
-def read_all_anytask(path = "../anytask"):
-    result = defaultdict(dict)
-    for term in os.listdir(path):
-        term_path = os.path.join(path, term)
-        for problem in os.listdir(term_path):
-            problem_path = os.path.join(term_path, problem)
-            for student in os.listdir(problem_path):
-                student_path = os.path.join(problem_path, student)
-                if not os.path.isdir(student_path):
-                    continue
-                for file in os.listdir(student_path):
-                    if not file.endswith(".py"):
-                        continue
-                    file_path = os.path.join(student_path, file)
-                    src = open(file_path, "r").read()
-                    
-                    problem_name = ":".join([term, problem, file])
-                    result[student][problem_name] = src
+#                     problem_name = ":".join([term, problem, file])
+#                     result[student][problem_name] = src
                     
                     
        
         
-    return result
+#     return result
+def validate_max(metric):
+    if len(metric) == 0:
+        raise ValueError("Empty metric")
+    
+    if np.argmax(metric) == len(metric) - 1:
+        return True
+    
+    return False
+
 
 class Batcher:
     def __init__(self, data, batch_size):
@@ -419,16 +431,23 @@ class Trainer:
                 
         self.train_metrics = defaultdict(list)
         self.validation_metrics = defaultdict(list)
-        self.all_params = {}
+        self.all_params = []
         
+#         self.current_epoch = 0
+        self.reset_epochs()
+        
+    def reset_epochs(self):
+        self.current_epoch = 0
+    
+    
     def save_last_state(self):
 #         torch.save(self.model.state_dict(), path)
-        utilities.dump_model(self, os.path.join(path, "last_state"), override=True)
+        utilities.dump_model(self, os.path.join(self.path, "last_state"), override=True)
    
     def is_best_state(self):
         metric_name = self.track_metric['metric_name']
         if self.track_metric['function'](self.validation_metrics[metric_name]):
-            utilities.dump_model(self, os.path.join(path, "best_state"), override=True)
+            utilities.dump_model(self, os.path.join(self.path, "best_state"), override=True)
                 
 #     def restore(self, path):
 #         if self.global_iterations > 0:
@@ -475,6 +494,8 @@ class Trainer:
         plt.plot(self.train_metrics['grads_1'])
         plt.plot(self.train_metrics['grads_2'])
         plt.plot(self.train_metrics['grads_embeddings'], label='embeddings')
+        if hasattr(self.model.ast_encoder, "name_embedding_layer"):
+                     plt.plot(self.train_metrics['grads_name_embeddings'], label='name_embeddings')
         plt.legend()
         plt.show()
 
@@ -499,12 +520,16 @@ class Trainer:
 
     
     def train(self, batch_sampler, params):
-        self.model.train()
+#         self.model.train()
 
 #         grads_1 = []
 #         grads_2 = []
 #         grads_embeddings = []
-        for epoch_id in range(params['n_epochs']):
+        self.all_params.append(copy.deepcopy(params))
+        utilities.dump_batcher(batch_sampler, self.path, override=True)
+        start_epoch = self.current_epoch
+        for epoch_id in range(start_epoch, start_epoch + params['n_epochs'], 1):
+            self.current_epoch = epoch_id
             self.model.train()
             start_time = time.time()
             for x, y in batch_sampler.train():
@@ -521,7 +546,14 @@ class Trainer:
                 self.train_metrics['grads_1'].append(self.model.ast_encoder.subtree_network.weight_ih_l0.grad.norm())
                 self.train_metrics['grads_2'].append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
 #                 grads_2.append(self.model.ast_encoder.subtree_network.weight_hh_l0.grad.norm())
-                self.train_metrics['grads_embeddings'].append(self.model.ast_encoder.name_embedding_layer.weight.grad.norm())
+                self.train_metrics['grads_embeddings'].append(
+                    self.model.ast_encoder.embedding_layer.weight.grad.norm()
+                )
+                
+                if hasattr(self.model.ast_encoder, "name_embedding_layer"):
+                     self.train_metrics['grads_name_embeddings'].append(
+                        self.model.ast_encoder.name_embedding_layer.weight.grad.norm()
+                    )
 #                 print(grads_embeddings[-1])
 
 #                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
@@ -533,14 +565,15 @@ class Trainer:
                 
                 # print(y)
                 # print(prediction)
-
+#             train_metrics['epoch_time'].append(time.time())
+            self.train_metrics['time_elapsed'].append(time.time() - start_time)
 #             print("Epoch took ", time.time() - start_time)
             #print(self.train_metrics['loss'][-1])
 
-
+            self.save_last_state()
             if epoch_id % params['validate_every'] == 0:
                 self.model.eval()
-                loss, accuracy = self.validate(batch_sample.train())
+                loss, accuracy = self.validate(batch_sampler.train())
                 self.train_metrics['accuracy'].append(accuracy)
 #                 z = 0
 #                 n_items = 0
@@ -565,7 +598,7 @@ class Trainer:
 #                     _, prediction = prediction.max(dim=1)
 #                     z += np.count_nonzero(prediction == y)
 #                     n_items += len(prediction)
-                loss, accuracy = self.validate(batch_sample.test())
+                loss, accuracy = self.validate(batch_sampler.test())
 
                 self.validation_metrics['validation_iterations'].append(len(self.train_metrics['loss']))
                 self.validation_metrics['loss'].append(loss)
@@ -573,6 +606,6 @@ class Trainer:
 #                 print(self.validation_metrics['accuracy'][-1])/
                 self.is_best_state()
     
-              self.save_last_state()
+            
 
             # raise ValueError()
